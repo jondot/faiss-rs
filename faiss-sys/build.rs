@@ -1,12 +1,16 @@
-fn main() {
+use anyhow::{Context, Result};
+use std::env;
+
+fn main() -> Result<()> {
     #[cfg(feature = "static")]
-    static_link_faiss();
+    static_link_faiss()?;
     #[cfg(not(feature = "static"))]
     println!("cargo:rustc-link-lib=faiss_c");
+    Ok(())
 }
 
 #[cfg(feature = "static")]
-fn static_link_faiss() {
+fn static_link_faiss() -> Result<()> {
     let mut cfg = cmake::Config::new("faiss");
     cfg.define("FAISS_ENABLE_C_API", "ON")
         .define("BUILD_SHARED_LIBS", "OFF")
@@ -29,9 +33,17 @@ fn static_link_faiss() {
     println!("cargo:rustc-link-lib=static=faiss_c");
     println!("cargo:rustc-link-lib=static=faiss");
     link_cxx();
-    println!("cargo:rustc-link-lib=gomp");
+
+    let target = env::var("TARGET").context("TARGET variable not set")?;
+
+    if !target.contains("msvc") && !target.contains("apple") {
+        println!("cargo:rustc-link-lib=gomp");
+    } else {
+        println!("cargo:rustc-link-lib=omp");
+    }
     println!("cargo:rustc-link-lib=blas");
     println!("cargo:rustc-link-lib=lapack");
+    Ok(())
 }
 
 #[cfg(feature = "static")]
